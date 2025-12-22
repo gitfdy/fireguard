@@ -50,17 +50,20 @@ class TimerService {
       isActive: true,
     );
 
-    _activeTimers[uid] = record;
-
     // 记录到历史
+    final historyId = '${uid}_${DateTime.now().millisecondsSinceEpoch}';
     await DatabaseService().insertHistoryRecord(
       HistoryRecord(
-        id: '${uid}_${DateTime.now().millisecondsSinceEpoch}',
+        id: historyId,
         uid: uid,
         name: name,
         checkInTime: DateTime.now(),
       ),
     );
+
+    // 保存历史记录ID到计时器记录
+    record.historyRecordId = historyId;
+    _activeTimers[uid] = record;
 
     _notifyListeners();
   }
@@ -72,8 +75,13 @@ class TimerService {
       record.isActive = false;
       record.endTime = DateTime.now();
       
-      // 更新历史记录
-      // TODO: 更新对应的历史记录为已完成
+      // 更新历史记录为已完成
+      if (record.historyRecordId != null) {
+        await DatabaseService().updateHistoryRecordCheckOut(
+          record.historyRecordId!,
+          record.endTime!,
+        );
+      }
     }
     _notifyListeners();
   }

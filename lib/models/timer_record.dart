@@ -6,6 +6,7 @@ class TimerRecord {
   final int durationMinutes;
   DateTime? endTime;
   bool isActive;
+  String? historyRecordId; // 关联的历史记录ID
 
   TimerRecord({
     required this.uid,
@@ -14,6 +15,7 @@ class TimerRecord {
     required this.durationMinutes,
     this.endTime,
     this.isActive = true,
+    this.historyRecordId,
   });
 
   /// 获取剩余秒数
