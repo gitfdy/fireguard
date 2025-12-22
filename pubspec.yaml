@@ -36,7 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   
   # NFC support
-  nfc_manager: 3.3.0
+  nfc_manager: ^4.1.1
   
   # Database
   sqflite: ^2.3.0

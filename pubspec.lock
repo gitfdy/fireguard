@@ -280,6 +280,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.17.0"
+  ndef_record:
+    dependency: transitive
+    description:
+      name: ndef_record
+      sha256: "86e888a2b5f8fcf042a384a3a361f546413efd1d328e643b477d5c5808a9c8bb"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "1.4.0"
   nested:
     dependency: transitive
     description:
@@ -292,10 +300,10 @@ packages:
     dependency: "direct main"
     description:
       name: nfc_manager
-      sha256: d6a4cc6a8a37119b1e8cc242392c0c87623d319cf1423f6a90cb998a52970baf
+      sha256: "24c78b0e5702da53e7f8794d073624c0bee7cd99924f257cbd11f5d1c5866879"
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "3.3.0"
+    version: "4.1.1"
   path:
     dependency: "direct main"
     description:

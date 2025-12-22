@@ -1,5 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:nfc_manager/nfc_manager.dart';
+import 'package:nfc_manager/nfc_manager_android.dart';
+import 'package:nfc_manager/ndef_record.dart';
 import '../models/firefighter.dart';
 
 /// NFC 服务
@@ -41,24 +44,36 @@ class NfcService {
     
     try {
       await NfcManager.instance.startSession(
+        pollingOptions: {
+          NfcPollingOption.iso14443,
+          NfcPollingOption.iso15693,
+          NfcPollingOption.iso18092,
+        },
         onDiscovered: (NfcTag tag) async {
           try {
-            final ndef = Ndef.from(tag);
+            // 使用平台特定的 Ndef 类
+            final ndef = NdefAndroid.from(tag);
             if (ndef == null) {
               onError?.call('此标签不支持 NDEF 格式');
               return;
             }
 
-            final ndefMessage = await ndef.read();
-            if (ndefMessage.records.isEmpty) {
+            final ndefMessage = await ndef.getNdefMessage();
+            if (ndefMessage == null || ndefMessage.records.isEmpty) {
               onError?.call('标签为空，请先注册');
               return;
             }
 
             // 读取第一个 Text Record
             final record = ndefMessage.records.first;
-            if (record.typeNameFormat != NdefTypeNameFormat.nfcWellknown) {
+            if (record.typeNameFormat != TypeNameFormat.wellKnown) {
               onError?.call('标签格式不正确');
+              return;
+            }
+
+            // 检查是否是 Text Record (type = "T" = 0x54)
+            if (record.type.length != 1 || record.type[0] != 0x54) {
+              onError?.call('标签不是 Text Record 格式');
               return;
             }
 
@@ -96,9 +111,6 @@ class NfcService {
             onError?.call('读取标签失败: $e');
           }
         },
-        onError: (error) async {
-          onError?.call('NFC 读取错误: $error');
-        },
       );
       return;
     } catch (e) {
@@ -121,6 +133,32 @@ class NfcService {
     }
   }
 
+  /// 创建 Text Record
+  NdefRecord _createTextRecord(String text) {
+    // Text Record 格式：
+    // typeNameFormat: wellKnown
+    // type: "T" (0x54)
+    // identifier: 空
+    // payload: [语言代码长度(1字节)][语言代码][文本内容]
+    // 默认使用 "en" 作为语言代码
+    
+    final languageCode = 'en';
+    final languageCodeBytes = utf8.encode(languageCode);
+    final textBytes = utf8.encode(text);
+    
+    final payload = Uint8List(1 + languageCodeBytes.length + textBytes.length);
+    payload[0] = languageCodeBytes.length; // 语言代码长度
+    payload.setRange(1, 1 + languageCodeBytes.length, languageCodeBytes); // 语言代码
+    payload.setRange(1 + languageCodeBytes.length, payload.length, textBytes); // 文本内容
+    
+    return NdefRecord(
+      typeNameFormat: TypeNameFormat.wellKnown,
+      type: Uint8List.fromList([0x54]), // "T"
+      identifier: Uint8List(0),
+      payload: payload,
+    );
+  }
+
   /// 写入 NFC 标签
   Future<bool> writeTag(Firefighter firefighter) async {
     final available = await isAvailable();
@@ -130,40 +168,41 @@ class NfcService {
 
     try {
       bool writeSuccess = false;
+      String? errorMessage;
       
       await NfcManager.instance.startSession(
+        pollingOptions: {
+          NfcPollingOption.iso14443,
+          NfcPollingOption.iso15693,
+          NfcPollingOption.iso18092,
+        },
         onDiscovered: (NfcTag tag) async {
           try {
-            final ndef = Ndef.from(tag);
+            final ndef = NdefAndroid.from(tag);
             if (ndef == null) {
               throw Exception('此标签不支持 NDEF 格式');
             }
 
             // 检查是否已有数据
-            final existingMessage = await ndef.read();
-            if (existingMessage.records.isNotEmpty) {
+            final existingMessage = await ndef.getNdefMessage();
+            if (existingMessage != null && existingMessage.records.isNotEmpty) {
               throw Exception('此卡已注册，请使用空白卡');
             }
 
             // 创建 NDEF 消息
             final jsonString = firefighter.toNfcJson();
-
-            // 创建 Text Record
-            final record = NdefRecord.createText(jsonString);
-
-            final ndefMessage = NdefMessage([record]);
+            final record = _createTextRecord(jsonString);
+            final ndefMessage = NdefMessage(records: [record]);
 
             // 写入标签
-            await ndef.write(ndefMessage);
+            await ndef.writeNdefMessage(ndefMessage);
             writeSuccess = true;
             await NfcManager.instance.stopSession();
           } catch (e) {
+            errorMessage = e.toString();
             await NfcManager.instance.stopSession();
             throw e;
           }
-        },
-        onError: (error) {
-          throw Exception('写入失败: $error');
         },
       );
 
@@ -175,7 +214,7 @@ class NfcService {
       }
 
       if (!writeSuccess) {
-        throw Exception('写入超时');
+        throw Exception(errorMessage ?? '写入超时');
       }
 
       return true;
@@ -193,25 +232,27 @@ class NfcService {
       bool? isEmpty;
       
       await NfcManager.instance.startSession(
+        pollingOptions: {
+          NfcPollingOption.iso14443,
+          NfcPollingOption.iso15693,
+          NfcPollingOption.iso18092,
+        },
         onDiscovered: (NfcTag tag) async {
           try {
-            final ndef = Ndef.from(tag);
+            final ndef = NdefAndroid.from(tag);
             if (ndef == null) {
               isEmpty = false;
               await NfcManager.instance.stopSession();
               return;
             }
 
-            final message = await ndef.read();
-            isEmpty = message.records.isEmpty;
+            final message = await ndef.getNdefMessage();
+            isEmpty = message == null || message.records.isEmpty;
             await NfcManager.instance.stopSession();
           } catch (e) {
             isEmpty = false;
             await NfcManager.instance.stopSession();
           }
-        },
-        onError: (_) async {
-          isEmpty = false;
         },
       );
 
@@ -227,4 +268,3 @@ class NfcService {
     }
   }
 }
-
