@@ -6,6 +6,9 @@ import '../constants/app_constants.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_theme.dart';
 import 'history_screen.dart';
+import 'emergency_phones_screen.dart';
+import 'system_check_screen.dart';
+import 'statistics_screen.dart';
 
 /// 设置页面
 class SettingsScreen extends StatefulWidget {
@@ -146,11 +149,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 16),
           Card(
+            child: ListTile(
+              title: const Text('紧急电话'),
+              subtitle: const Text('管理报警时拨打的紧急电话'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const EmergencyPhonesScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
             child: SwitchListTile(
               title: const Text('警报音'),
               subtitle: const Text('超时报警时播放声音'),
               value: _alarmSoundEnabled,
               onChanged: _toggleAlarmSound,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: ListTile(
+              title: const Text('系统自检'),
+              subtitle: const Text('检查系统状态和权限'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SystemCheckScreen(),
+                  ),
+                );
+              },
             ),
           ),
           const SizedBox(height: 16),
@@ -164,6 +199,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (context) => const HistoryScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: ListTile(
+              title: const Text('统计信息'),
+              subtitle: const Text('查看出警和报警统计数据'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const StatisticsScreen(),
                   ),
                 );
               },

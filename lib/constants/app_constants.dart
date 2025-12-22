@@ -23,7 +23,7 @@ class AppConstants {
   
   // 数据库名称
   static const String databaseName = 'fireguard.db';
-  static const int databaseVersion = 1;
+  static const int databaseVersion = 2;
   
   // SharedPreferences 键名
   static const String keyTimerDuration = 'timer_duration';

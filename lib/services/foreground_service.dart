@@ -121,10 +121,10 @@ class ForegroundServiceManager {
           playSound: false,
         ),
         foregroundTaskOptions: ForegroundTaskOptions(
-          eventAction: ForegroundTaskEventAction.repeat,
           autoRunOnBoot: true,
           allowWakeLock: true,
           allowWifiLock: true,
+          eventAction: ForegroundTaskEventAction.repeat(1000),
         ),
       );
 

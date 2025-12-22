@@ -17,9 +17,46 @@ class TimerService {
 
   /// 初始化服务
   Future<void> initialize() async {
-    // 从设置中加载倒计时时长
-    // TODO: 从 SharedPreferences 加载
+    // 恢复未完成的计时器
+    await _restoreActiveTimers();
     _startUpdateTimer();
+  }
+
+  /// 恢复未完成的计时器（设备重启后）
+  Future<void> _restoreActiveTimers() async {
+    try {
+      final savedTimers = await DatabaseService().getActiveTimers();
+      final now = DateTime.now();
+      
+      for (final timerData in savedTimers) {
+        final startTime = DateTime.parse(timerData['startTime'] as String);
+        final durationMinutes = timerData['durationMinutes'] as int;
+        final elapsed = now.difference(startTime).inSeconds;
+        final total = durationMinutes * 60;
+        
+        // 如果已经超时超过5分钟，不恢复（可能已经处理）
+        if (elapsed > total + 300) {
+          continue;
+        }
+        
+        final record = TimerRecord(
+          uid: timerData['uid'] as String,
+          name: timerData['name'] as String,
+          startTime: startTime,
+          durationMinutes: durationMinutes,
+          isActive: true,
+          historyRecordId: timerData['historyRecordId'] as String?,
+        );
+        
+        _activeTimers[record.uid] = record;
+      }
+      
+      if (_activeTimers.isNotEmpty) {
+        _notifyListeners();
+      }
+    } catch (e) {
+      // 忽略恢复错误，继续运行
+    }
   }
 
   /// 设置倒计时时长
@@ -65,6 +102,9 @@ class TimerService {
     record.historyRecordId = historyId;
     _activeTimers[uid] = record;
 
+    // 持久化到数据库（用于恢复）
+    await DatabaseService().saveActiveTimer(record);
+
     _notifyListeners();
   }
 
@@ -82,6 +122,9 @@ class TimerService {
           record.endTime!,
         );
       }
+      
+      // 从持久化存储中移除
+      await DatabaseService().removeActiveTimer(uid);
     }
     _notifyListeners();
   }
@@ -92,10 +135,23 @@ class TimerService {
     await startTimer(uid, name);
   }
 
-  /// 获取所有活跃计时器
+  /// 获取所有活跃计时器（按紧急程度排序）
   List<TimerRecord> getActiveTimers() {
-    return _activeTimers.values.toList()
-      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+    final timers = _activeTimers.values.toList();
+    
+    // 按紧急程度排序：超时 > 警告(<5分钟) > 注意(<10分钟) > 正常
+    timers.sort((a, b) {
+      if (a.isTimeout && !b.isTimeout) return -1;
+      if (!a.isTimeout && b.isTimeout) return 1;
+      
+      final aRemaining = a.getRemainingSeconds();
+      final bRemaining = b.getRemainingSeconds();
+      
+      // 都超时或都正常，按剩余时间排序
+      return aRemaining.compareTo(bRemaining);
+    });
+    
+    return timers;
   }
 
   /// 获取指定 UID 的计时器
@@ -135,12 +191,19 @@ class TimerService {
         }
       }
 
+      // 持久化所有活跃计时器（用于恢复）- 异步执行
+      Future.microtask(() async {
+        for (final record in _activeTimers.values) {
+          await DatabaseService().saveActiveTimer(record);
+        }
+      });
+
       // 通知监听器更新 UI
       _notifyListeners();
 
       // 如果有超时，触发报警（由 AlarmService 处理）
       if (hasTimeout) {
-        // TODO: 触发报警
+        // 报警由 AlarmService.checkAndTriggerAlarms() 处理
       }
     });
   }

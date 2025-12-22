@@ -122,18 +122,19 @@ class _TimerCardState extends State<TimerCard> {
                     ],
                   ),
                 ),
-                AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 300),
-                  style: TextStyle(
-                    fontSize: AppTheme.fontSizeTimer,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
-                    fontFamily: 'Roboto Mono',
-                  ),
-                  child: Text(
-                    timer.getFormattedRemainingTime(),
-                  ),
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 300),
+                style: TextStyle(
+                  fontSize: AppTheme.fontSizeTimer,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                  fontFamily: 'Roboto Mono',
+                  letterSpacing: 2, // 增加字间距，提高可读性
                 ),
+                child: Text(
+                  timer.getFormattedRemainingTime(),
+                ),
+              ),
               ],
             ),
           ),

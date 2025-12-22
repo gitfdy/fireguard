@@ -4,8 +4,10 @@ import '../providers/timer_provider.dart';
 import '../providers/alarm_provider.dart';
 import '../widgets/timer_card.dart';
 import '../widgets/alarm_dialog.dart';
+import '../widgets/system_status_card.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_theme.dart';
+import 'package:vibration/vibration.dart';
 import '../services/nfc_service.dart';
 import '../services/timer_service.dart';
 import '../services/alarm_service.dart';
@@ -79,21 +81,40 @@ class _HomeScreenState extends State<HomeScreen> {
 
     _nfcService.startSession(
       onTagDiscovered: (Firefighter firefighter) async {
+        // 震动反馈
+        try {
+          if (await Vibration.hasVibrator() ?? false) {
+            await Vibration.vibrate(duration: 100);
+          }
+        } catch (e) {
+          // 忽略震动错误
+        }
+
         final timerProvider = Provider.of<TimerProvider>(context, listen: false);
         final existingTimer = timerProvider.getTimer(firefighter.uid);
         
         if (existingTimer != null) {
           // 重置计时器
           await timerProvider.resetTimer(firefighter.uid, firefighter.name);
-          _showSnackBar('${firefighter.name} 计时已重置');
+          _showLargeToast('${firefighter.name} 计时已重置', isError: false);
         } else {
           // 启动新计时器
           await timerProvider.startTimer(firefighter.uid, firefighter.name);
-          _showSnackBar('${firefighter.name} 已开始计时');
+          _showLargeToast('${firefighter.name} 已开始计时', isError: false);
         }
       },
-      onError: (String error) {
-        _showSnackBar('错误: $error', isError: true);
+      onError: (String error) async {
+        // 错误时震动反馈
+        try {
+          if (await Vibration.hasVibrator() ?? false) {
+            await Vibration.vibrate(pattern: [0, 200, 100, 200]);
+          }
+        } catch (e) {
+          // 忽略震动错误
+        }
+        if (mounted) {
+          _showLargeToast('错误: $error', isError: true);
+        }
       },
     );
   }
@@ -149,12 +170,21 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _showSnackBar(String message, {bool isError = false}) {
+  void _showLargeToast(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(
+          message,
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: isError ? AppColors.timeoutRed : AppColors.successGreen,
-        duration: const Duration(seconds: 2),
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       ),
     );
   }
@@ -218,41 +248,60 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context, timerProvider, child) {
           final timers = timerProvider.activeTimers;
           
-          if (timers.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.nfc,
-                    size: 80,
-                    color: AppColors.textSecondaryDark,
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    _statusMessage,
-                    style: const TextStyle(
-                      fontSize: AppTheme.fontSizeBody,
-                      color: AppColors.textSecondaryDark,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            );
-          }
-
           return Column(
             children: [
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: timers.length,
-                  itemBuilder: (context, index) {
-                    return TimerCard(timer: timers[index]);
-                  },
-                ),
+              // 系统状态卡片
+              SystemStatusCard(
+                isServiceRunning: _isServiceRunning,
+                isNfcAvailable: _isNfcAvailable,
+                activeTimerCount: timers.length,
               ),
+              
+              if (timers.isEmpty)
+                Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.nfc,
+                          size: 80,
+                          color: AppColors.textSecondaryDark,
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          _statusMessage,
+                          style: const TextStyle(
+                            fontSize: AppTheme.fontSizeBody,
+                            color: AppColors.textSecondaryDark,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          '💡 提示：刷卡后自动开始计时，\n返回时再次刷卡即可重置计时器',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: AppColors.textSecondaryDark,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: timers.length,
+                    itemBuilder: (context, index) {
+                      return TimerCard(timer: timers[index]);
+                    },
+                  ),
+                ),
+              
+              // 底部提示条
               Container(
                 padding: const EdgeInsets.all(16),
                 color: AppColors.darkBackground,
@@ -276,8 +325,12 @@ class _HomeScreenState extends State<HomeScreen> {
             MaterialPageRoute(builder: (context) => const RegisterScreen()),
           );
         },
-        icon: const Icon(Icons.person_add),
-        label: const Text('注册新消防员'),
+        icon: const Icon(Icons.person_add, size: 28),
+        label: const Text(
+          '注册新消防员',
+          style: TextStyle(fontSize: 20),
+        ),
+        tooltip: '注册新消防员',
       ),
     );
   }

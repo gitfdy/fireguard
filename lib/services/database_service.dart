@@ -3,6 +3,7 @@ import 'package:path/path.dart';
 import '../models/firefighter.dart';
 import '../models/alarm_record.dart';
 import '../models/history_record.dart';
+import '../models/timer_record.dart';
 import '../constants/app_constants.dart';
 
 /// 数据库服务
@@ -27,6 +28,7 @@ class DatabaseService {
       path,
       version: AppConstants.databaseVersion,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -64,13 +66,43 @@ class DatabaseService {
       )
     ''');
 
+    // 活跃计时器表（用于设备重启后恢复）
+    await db.execute('''
+      CREATE TABLE active_timers (
+        uid TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        startTime TEXT NOT NULL,
+        durationMinutes INTEGER NOT NULL,
+        historyRecordId TEXT,
+        lastUpdateTime TEXT NOT NULL
+      )
+    ''');
+
     // 创建索引
     await db.execute('CREATE INDEX idx_alarm_time ON alarm_records(alarmTime)');
-    await db.execute('CREATE INDEX idx_history_time ON history_records(checkInTime)');
+    await db.execute(
+      'CREATE INDEX idx_history_time ON history_records(checkInTime)',
+    );
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // 添加活跃计时器表
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS active_timers (
+          uid TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          startTime TEXT NOT NULL,
+          durationMinutes INTEGER NOT NULL,
+          historyRecordId TEXT,
+          lastUpdateTime TEXT NOT NULL
+        )
+      ''');
+    }
   }
 
   // ========== 消防员管理 ==========
-  
+
   Future<void> insertFirefighter(Firefighter firefighter) async {
     final db = await database;
     await db.insert(
@@ -98,7 +130,7 @@ class DatabaseService {
   }
 
   // ========== 报警记录管理 ==========
-  
+
   Future<void> insertAlarmRecord(AlarmRecord record) async {
     final db = await database;
     await db.insert(
@@ -112,10 +144,7 @@ class DatabaseService {
     final db = await database;
     await db.update(
       'alarm_records',
-      {
-        'isHandled': 1,
-        'handledTime': handledTime.toIso8601String(),
-      },
+      {'isHandled': 1, 'handledTime': handledTime.toIso8601String()},
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -145,7 +174,7 @@ class DatabaseService {
   }
 
   // ========== 历史记录管理 ==========
-  
+
   Future<void> insertHistoryRecord(HistoryRecord record) async {
     final db = await database;
     await db.insert(
@@ -155,14 +184,14 @@ class DatabaseService {
     );
   }
 
-  Future<void> updateHistoryRecordCheckOut(String id, DateTime checkOutTime) async {
+  Future<void> updateHistoryRecordCheckOut(
+    String id,
+    DateTime checkOutTime,
+  ) async {
     final db = await database;
     await db.update(
       'history_records',
-      {
-        'completed': 1,
-        'checkOutTime': checkOutTime.toIso8601String(),
-      },
+      {'completed': 1, 'checkOutTime': checkOutTime.toIso8601String()},
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -191,17 +220,46 @@ class DatabaseService {
     return maps.map((map) => HistoryRecord.fromJson(map)).toList();
   }
 
+  // ========== 活跃计时器管理（用于状态恢复） ==========
+
+  Future<void> saveActiveTimer(TimerRecord timer) async {
+    final db = await database;
+    await db.insert('active_timers', {
+      'uid': timer.uid,
+      'name': timer.name,
+      'startTime': timer.startTime.toIso8601String(),
+      'durationMinutes': timer.durationMinutes,
+      'historyRecordId': timer.historyRecordId ?? '',
+      'lastUpdateTime': DateTime.now().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<void> removeActiveTimer(String uid) async {
+    final db = await database;
+    await db.delete('active_timers', where: 'uid = ?', whereArgs: [uid]);
+  }
+
+  Future<List<Map<String, dynamic>>> getActiveTimers() async {
+    final db = await database;
+    return await db.query('active_timers');
+  }
+
+  Future<void> clearActiveTimers() async {
+    final db = await database;
+    await db.delete('active_timers');
+  }
+
   // ========== 导出日志 ==========
-  
+
   Future<String> exportLogsAsText() async {
     final alarms = await getAlarmRecords(limit: 1000);
     final histories = await getHistoryRecords(limit: 1000);
-    
+
     final buffer = StringBuffer();
     buffer.writeln('=== FireGuard 系统日志 ===');
     buffer.writeln('导出时间: ${DateTime.now().toIso8601String()}');
     buffer.writeln('');
-    
+
     buffer.writeln('=== 报警记录 ===');
     for (final alarm in alarms) {
       buffer.writeln(
@@ -211,7 +269,7 @@ class DatabaseService {
       );
     }
     buffer.writeln('');
-    
+
     buffer.writeln('=== 出警历史 ===');
     for (final history in histories) {
       buffer.writeln(
@@ -220,8 +278,7 @@ class DatabaseService {
         '${history.completed ? "已完成" : "进行中"}',
       );
     }
-    
+
     return buffer.toString();
   }
 }
-

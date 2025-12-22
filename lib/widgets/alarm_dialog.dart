@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/alarm_record.dart';
@@ -19,9 +18,7 @@ class AlarmDialog extends StatefulWidget {
 }
 
 class _AlarmDialogState extends State<AlarmDialog> {
-  bool _isConfirming = false;
-  int _confirmProgress = 0;
-  Timer? _confirmTimer;
+  bool _showConfirmDialog = false;
 
   @override
   void initState() {
@@ -32,34 +29,9 @@ class _AlarmDialogState extends State<AlarmDialog> {
     );
   }
 
-  @override
-  void dispose() {
-    _confirmTimer?.cancel();
-    super.dispose();
-  }
-
-  void _startConfirm() {
+  void _showConfirmDialogDialog() {
     setState(() {
-      _isConfirming = true;
-      _confirmProgress = 0;
-    });
-
-    _confirmTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
-      setState(() {
-        _confirmProgress += 2; // 2秒 = 2000ms / 50ms * 2% = 40次
-        if (_confirmProgress >= 100) {
-          timer.cancel();
-          _handleConfirm();
-        }
-      });
-    });
-  }
-
-  void _cancelConfirm() {
-    _confirmTimer?.cancel();
-    setState(() {
-      _isConfirming = false;
-      _confirmProgress = 0;
+      _showConfirmDialog = true;
     });
   }
 
@@ -67,106 +39,159 @@ class _AlarmDialogState extends State<AlarmDialog> {
     Navigator.of(context).pop(true);
   }
 
+  void _handleCancel() {
+    setState(() {
+      _showConfirmDialog = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async => false, // 阻止返回键关闭
-      child: Dialog(
-        backgroundColor: AppColors.timeoutRed,
-        insetPadding: EdgeInsets.zero,
-        child: Container(
-          width: double.infinity,
-          height: double.infinity,
-          color: AppColors.timeoutRed,
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.warning_amber_rounded,
-                    size: 120,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(height: 32),
-                  Text(
-                    '🚨 超时报警 🚨',
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    '${widget.alarm.name} 已超时未返回！',
-                    style: const TextStyle(
-                      fontSize: AppTheme.fontSizeTitle,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'UID: ${widget.alarm.uid}',
-                    style: const TextStyle(
-                      fontSize: AppTheme.fontSizeBody,
-                      color: Colors.white70,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  Text(
-                    '已自动拨打紧急电话',
-                    style: const TextStyle(
-                      fontSize: AppTheme.fontSizeBody,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const Spacer(),
-                  if (_isConfirming)
-                    Column(
-                      children: [
-                        LinearProgressIndicator(
-                          value: _confirmProgress / 100,
-                          backgroundColor: Colors.white30,
-                          valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                          minHeight: 8,
+    return Stack(
+      children: [
+        WillPopScope(
+          onWillPop: () async => false, // 阻止返回键关闭
+          child: Dialog(
+            backgroundColor: AppColors.timeoutRed,
+            insetPadding: EdgeInsets.zero,
+            child: Container(
+              width: double.infinity,
+              height: double.infinity,
+              color: AppColors.timeoutRed,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        size: 120,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(height: 32),
+                      const Text(
+                        '🚨 超时报警 🚨',
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          '长按确认中...',
-                          style: TextStyle(
-                            fontSize: AppTheme.fontSizeBody,
-                            color: Colors.white,
-                          ),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        '${widget.alarm.name} 已超时未返回！',
+                        style: const TextStyle(
+                          fontSize: AppTheme.fontSizeTitle,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
-                      ],
-                    )
-                  else
-                    GestureDetector(
-                      onLongPressStart: (_) => _startConfirm(),
-                      onLongPressEnd: (_) => _cancelConfirm(),
-                      child: ElevatedButton(
-                        onPressed: _startConfirm,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'UID: ${widget.alarm.uid}',
+                        style: const TextStyle(
+                          fontSize: AppTheme.fontSizeBody,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      const Text(
+                        '已自动拨打紧急电话',
+                        style: TextStyle(
+                          fontSize: AppTheme.fontSizeBody,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const Spacer(),
+                      ElevatedButton(
+                        onPressed: _showConfirmDialogDialog,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,
                           foregroundColor: AppColors.timeoutRed,
-                          minimumSize: const Size(double.infinity, 64),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          minimumSize: const Size(double.infinity, 72),
+                          padding: const EdgeInsets.symmetric(vertical: 20),
                         ),
                         child: const Text(
-                          '✅ 确认已处理（长按）',
+                          '✅ 确认已处理',
                           style: TextStyle(
-                            fontSize: AppTheme.fontSizeTitle,
+                            fontSize: 28,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
-                    ),
-                ],
+                    ],
+                  ),
+                ),
               ),
+            ),
+          ),
+        ),
+        if (_showConfirmDialog) _buildConfirmDialog(),
+      ],
+    );
+  }
+
+  Widget _buildConfirmDialog() {
+    return Container(
+      color: Colors.black54,
+      child: Center(
+        child: Card(
+          margin: const EdgeInsets.all(24),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  size: 64,
+                  color: AppColors.warningOrange,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '确认已处理报警？',
+                  style: TextStyle(
+                    fontSize: AppTheme.fontSizeTitle,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '请确认现场情况已处理，\n此操作将关闭报警。',
+                  style: TextStyle(
+                    fontSize: AppTheme.fontSizeBody,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _handleCancel,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: const Text('取消'),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _handleConfirm,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.timeoutRed,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        child: const Text('确认'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
@@ -174,4 +199,3 @@ class _AlarmDialogState extends State<AlarmDialog> {
     );
   }
 }
-
