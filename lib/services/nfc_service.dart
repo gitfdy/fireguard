@@ -62,7 +62,8 @@ class NfcService {
               return;
             }
 
-            // 解析 JSON 数据 - 对于 Text Record，使用 record.additionalData
+            // 解析 Text Record 数据
+            // Text Record 格式：第一个字节是语言代码长度，然后是语言代码，然后是文本
             String text;
             try {
               final payload = record.payload;
@@ -70,8 +71,20 @@ class NfcService {
                 onError?.call('标签数据为空');
                 return;
               }
-              // Text Record 格式：第一个字节是语言代码长度，然后是语言代码，然后是文本
-              text = utf8.decode(payload.skip(1).toList()); // 跳过语言代码长度字节
+              
+              // 读取第一个字节获取语言代码长度
+              final languageCodeLength = payload[0];
+              
+              // 跳过语言代码长度字节(1) + 语言代码本身(N字节)，然后读取文本内容
+              final textStartIndex = 1 + languageCodeLength;
+              if (textStartIndex >= payload.length) {
+                onError?.call('标签数据格式错误：数据长度不足');
+                return;
+              }
+              
+              // 提取文本部分并解码
+              final textBytes = payload.sublist(textStartIndex);
+              text = utf8.decode(textBytes);
             } catch (e) {
               onError?.call('解析标签数据失败: $e');
               return;

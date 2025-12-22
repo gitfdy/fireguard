@@ -292,10 +292,10 @@ packages:
     dependency: "direct main"
     description:
       name: nfc_manager
-      sha256: f5be75e90f8f2bff3ee49fbd7ef65bdd4a86ee679c2412e71ab2846a8cff8c59
+      sha256: d6a4cc6a8a37119b1e8cc242392c0c87623d319cf1423f6a90cb998a52970baf
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "3.5.0"
+    version: "3.3.0"
   path:
     dependency: "direct main"
     description:
