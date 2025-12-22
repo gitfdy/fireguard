@@ -119,7 +119,7 @@ class AlarmService {
   /// 震动
   Future<void> _vibrate() async {
     try {
-      if (await Vibration.hasVibrator() ?? false) {
+      if (await Vibration.hasVibrator()) {
         // 震动 3 秒
         await Vibration.vibrate(duration: 3000);
       }

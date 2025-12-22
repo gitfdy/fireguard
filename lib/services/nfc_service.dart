@@ -33,7 +33,7 @@ class NfcService {
     if (_isListening) {
       return;
     }
-    
+
     final available = await isAvailable();
     if (!available) {
       onError?.call('NFC 不可用，请检查设备是否支持 NFC');
@@ -41,7 +41,7 @@ class NfcService {
     }
 
     _isListening = true;
-    
+
     try {
       await NfcManager.instance.startSession(
         pollingOptions: {
@@ -86,17 +86,17 @@ class NfcService {
                 onError?.call('标签数据为空');
                 return;
               }
-              
+
               // 读取第一个字节获取语言代码长度
               final languageCodeLength = payload[0];
-              
+
               // 跳过语言代码长度字节(1) + 语言代码本身(N字节)，然后读取文本内容
               final textStartIndex = 1 + languageCodeLength;
               if (textStartIndex >= payload.length) {
                 onError?.call('标签数据格式错误：数据长度不足');
                 return;
               }
-              
+
               // 提取文本部分并解码
               final textBytes = payload.sublist(textStartIndex);
               text = utf8.decode(textBytes);
@@ -104,7 +104,7 @@ class NfcService {
               onError?.call('解析标签数据失败: $e');
               return;
             }
-            
+
             final firefighter = Firefighter.fromNfcJson(text);
             onTagDiscovered(firefighter);
           } catch (e) {
@@ -141,16 +141,24 @@ class NfcService {
     // identifier: 空
     // payload: [语言代码长度(1字节)][语言代码][文本内容]
     // 默认使用 "en" 作为语言代码
-    
+
     final languageCode = 'en';
     final languageCodeBytes = utf8.encode(languageCode);
     final textBytes = utf8.encode(text);
-    
+
     final payload = Uint8List(1 + languageCodeBytes.length + textBytes.length);
     payload[0] = languageCodeBytes.length; // 语言代码长度
-    payload.setRange(1, 1 + languageCodeBytes.length, languageCodeBytes); // 语言代码
-    payload.setRange(1 + languageCodeBytes.length, payload.length, textBytes); // 文本内容
-    
+    payload.setRange(
+      1,
+      1 + languageCodeBytes.length,
+      languageCodeBytes,
+    ); // 语言代码
+    payload.setRange(
+      1 + languageCodeBytes.length,
+      payload.length,
+      textBytes,
+    ); // 文本内容
+
     return NdefRecord(
       typeNameFormat: TypeNameFormat.wellKnown,
       type: Uint8List.fromList([0x54]), // "T"
@@ -169,7 +177,7 @@ class NfcService {
     try {
       bool writeSuccess = false;
       String? errorMessage;
-      
+
       await NfcManager.instance.startSession(
         pollingOptions: {
           NfcPollingOption.iso14443,
@@ -230,7 +238,7 @@ class NfcService {
 
     try {
       bool? isEmpty;
-      
+
       await NfcManager.instance.startSession(
         pollingOptions: {
           NfcPollingOption.iso14443,

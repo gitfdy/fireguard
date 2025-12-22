@@ -83,7 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
       onTagDiscovered: (Firefighter firefighter) async {
         // 震动反馈
         try {
-          if (await Vibration.hasVibrator() ?? false) {
+          if (await Vibration.hasVibrator()) {
             await Vibration.vibrate(duration: 100);
           }
         } catch (e) {
@@ -106,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
       onError: (String error) async {
         // 错误时震动反馈
         try {
-          if (await Vibration.hasVibrator() ?? false) {
+          if (await Vibration.hasVibrator()) {
             await Vibration.vibrate(pattern: [0, 200, 100, 200]);
           }
         } catch (e) {
