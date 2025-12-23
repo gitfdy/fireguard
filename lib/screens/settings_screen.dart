@@ -10,6 +10,7 @@ import '../constants/app_themes.dart';
 import '../providers/theme_provider.dart';
 import '../providers/timer_provider.dart';
 import '../providers/alarm_provider.dart';
+import '../widgets/pin_input_dialog.dart';
 import 'history_screen.dart';
 import 'emergency_phones_screen.dart';
 import 'system_check_screen.dart';
@@ -427,6 +428,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   /// 完成任务：清除所有计时器和报警
   Future<void> _completeTask() async {
+    // 检查是否有任务
+    final isTaskActive = await _settingsService.isTaskActive();
+    if (!isTaskActive) {
+      _showSnackBar('当前没有进行中的任务', isError: false);
+      return;
+    }
+
+    // 获取保存的密码
+    final savedPassword = await _settingsService.getTaskPassword();
+    if (savedPassword == null || savedPassword.isEmpty) {
+      // 如果没有密码，直接完成任务
+      await _performCompleteTask();
+      return;
+    }
+
+    // 显示密码验证对话框
+    final pin = await showDialog<String>(
+      context: context,
+      builder: (context) => const PinInputDialog(
+        title: '验证密码',
+        subtitle: '请输入创建任务时的4位数密码',
+        isVerification: true,
+      ),
+    );
+
+    if (pin == null) {
+      return; // 用户取消
+    }
+
+    // 验证密码
+    if (pin != savedPassword) {
+      _showSnackBar('密码错误，无法完成任务', isError: true);
+      return;
+    }
+
+    // 密码正确，执行完成任务
+    await _performCompleteTask();
+  }
+
+  /// 执行完成任务操作
+  Future<void> _performCompleteTask() async {
     try {
       // 显示加载提示
       if (!mounted) return;
@@ -445,6 +487,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // 清除所有报警
       final alarmProvider = Provider.of<AlarmProvider>(context, listen: false);
       await alarmProvider.clearAllAlarms();
+
+      // 清除任务状态
+      await _settingsService.clearTask();
 
       // 关闭加载提示
       if (mounted) {

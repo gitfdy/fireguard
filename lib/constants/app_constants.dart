@@ -30,6 +30,8 @@ class AppConstants {
   static const String keyEmergencyPhones = 'emergency_phones';
   static const String keyAlarmSoundEnabled = 'alarm_sound_enabled';
   static const String keyThemeType = 'theme_type';
+  static const String keyTaskPassword = 'task_password';
+  static const String keyTaskActive = 'task_active';
   
   // NFC 数据格式
   static const String nfcMimeType = 'text/plain';

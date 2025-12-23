@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'dart:io' show Platform;
 import '../services/nfc_service.dart';
 import '../services/foreground_service.dart';
 import '../services/database_service.dart';
@@ -14,7 +16,7 @@ class SystemCheckScreen extends StatefulWidget {
   State<SystemCheckScreen> createState() => _SystemCheckScreenState();
 }
 
-class _SystemCheckScreenState extends State<SystemCheckScreen> {
+class _SystemCheckScreenState extends State<SystemCheckScreen> with WidgetsBindingObserver {
   final NfcService _nfcService = NfcService();
   final ForegroundServiceManager _foregroundService = ForegroundServiceManager();
   
@@ -25,11 +27,48 @@ class _SystemCheckScreenState extends State<SystemCheckScreen> {
   bool _foregroundServiceRunning = false;
   bool _databaseOk = false;
   bool _isChecking = true;
+  bool _hasInitialized = false; // 标记是否已经初始化完成
 
   @override
   void initState() {
     super.initState();
-    _checkSystemStatus();
+    // 注册生命周期监听
+    WidgetsBinding.instance.addObserver(this);
+    _checkSystemStatus().then((_) {
+      _hasInitialized = true;
+    });
+  }
+
+  @override
+  void dispose() {
+    // 移除生命周期监听
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // 当应用从后台切换到前台时，自动重新检查系统状态
+    // 这相当于点击了刷新按钮
+    if (state == AppLifecycleState.resumed && mounted) {
+      _checkSystemStatus();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 当页面重新显示时（例如从其他App切换回来），自动刷新
+    // 只有在初始化完成后才自动刷新，避免重复刷新
+    if (_hasInitialized && !_isChecking && mounted) {
+      // 延迟一小段时间，确保页面已经完全显示
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted && !_isChecking) {
+          _checkSystemStatus();
+        }
+      });
+    }
   }
 
   Future<void> _checkSystemStatus() async {
@@ -98,6 +137,57 @@ class _SystemCheckScreenState extends State<SystemCheckScreen> {
     }
   }
 
+  /// 打开NFC设置页面
+  Future<void> _openNfcSettings() async {
+    try {
+      if (Platform.isAndroid) {
+        // Android NFC设置Intent URI格式
+        // 使用 intent:// 格式打开系统NFC设置页面
+        // 格式：intent://[path]#Intent;scheme=[scheme];action=[action];end
+        const nfcSettingsUri = 'intent:#Intent;action=android.settings.NFC_SETTINGS;end';
+        final uri = Uri.parse(nfcSettingsUri);
+        
+        try {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } catch (e) {
+          // 如果intent方式失败，尝试使用permission_handler打开应用设置
+          // 用户可以在应用设置中找到NFC相关选项，或手动前往系统设置
+          await openAppSettings();
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('已打开应用设置，请手动前往系统设置 > 连接设备 > NFC'),
+                backgroundColor: AppColors.warningOrange,
+                duration: Duration(seconds: 4),
+              ),
+            );
+          }
+        }
+      } else {
+        // iOS不支持直接打开NFC设置，显示提示
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('iOS系统请在"设置 > 通用 > NFC"中开启'),
+              backgroundColor: AppColors.warningOrange,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('无法打开NFC设置: $e\n请手动前往系统设置 > 连接设备 > NFC'),
+            backgroundColor: AppColors.timeoutRed,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -133,11 +223,13 @@ class _SystemCheckScreenState extends State<SystemCheckScreen> {
                           'NFC 功能',
                           _nfcAvailable ? '可用' : '不可用',
                           _nfcAvailable,
+                          onFix: _nfcAvailable ? null : _openNfcSettings,
                         ),
                         _buildCheckItem(
                           'NFC 权限',
                           _nfcPermissionGranted ? '已授予' : '请在系统设置中开启',
                           _nfcPermissionGranted,
+                          onFix: _nfcPermissionGranted ? null : _openNfcSettings,
                         ),
                         _buildCheckItem(
                           '电话权限',

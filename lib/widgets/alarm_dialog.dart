@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/alarm_record.dart';
+import '../services/alarm_service.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_theme.dart';
 
@@ -19,6 +21,9 @@ class AlarmDialog extends StatefulWidget {
 
 class _AlarmDialogState extends State<AlarmDialog> {
   bool _showConfirmDialog = false;
+  int _callDelayRemaining = 10; // 延迟拨号的剩余秒数
+  Timer? _countdownTimer;
+  bool _isCalling = false; // 是否正在拨打电话
 
   @override
   void initState() {
@@ -27,6 +32,47 @@ class _AlarmDialogState extends State<AlarmDialog> {
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(statusBarColor: AppColors.timeoutRed),
     );
+    // 开始倒计时
+    _startCountdown();
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startCountdown() {
+    // 检查是否已经拨打过电话（可能其他报警已经触发了拨号）
+    final alarmService = AlarmService();
+    if (alarmService.hasCalledEmergency()) {
+      setState(() {
+        _isCalling = true;
+        _callDelayRemaining = 0;
+      });
+      return;
+    }
+    
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          _callDelayRemaining--;
+          
+          // 检查是否已经拨打过电话（可能其他报警触发了拨号）
+          if (alarmService.hasCalledEmergency()) {
+            _isCalling = true;
+            _callDelayRemaining = 0;
+            timer.cancel();
+            return;
+          }
+          
+          if (_callDelayRemaining <= 0) {
+            _isCalling = true;
+            timer.cancel();
+          }
+        });
+      }
+    });
   }
 
   void _showConfirmDialogDialog() {
@@ -102,12 +148,62 @@ class _AlarmDialogState extends State<AlarmDialog> {
                         ),
                       ),
                       const SizedBox(height: 32),
-                      const Text(
-                        '已自动拨打紧急电话',
-                        style: TextStyle(
-                          fontSize: AppTheme.fontSizeBody,
-                          color: Colors.white,
-                        ),
+                      // 显示倒计时或拨号状态
+                      Builder(
+                        builder: (context) {
+                          final alarmService = AlarmService();
+                          final hasCalled = alarmService.hasCalledEmergency();
+                          
+                          if (hasCalled || _isCalling) {
+                            return const Column(
+                              children: [
+                                Icon(
+                                  Icons.phone,
+                                  size: 32,
+                                  color: Colors.white,
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  '已拨打紧急电话',
+                                  style: TextStyle(
+                                    fontSize: AppTheme.fontSizeBody,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  '（30秒内不会重复拨打）',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ],
+                            );
+                          } else {
+                            return Column(
+                              children: [
+                                Text(
+                                  '${_callDelayRemaining} 秒后自动拨打紧急电话',
+                                  style: const TextStyle(
+                                    fontSize: AppTheme.fontSizeBody,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '请在倒计时结束前处理报警',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white.withOpacity(0.8),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }
+                        },
                       ),
                       const Spacer(),
                       ElevatedButton(

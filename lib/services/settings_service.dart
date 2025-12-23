@@ -69,6 +69,37 @@ class SettingsService {
     await _prefs!.setInt(AppConstants.keyThemeType, themeType.index);
   }
 
+  /// 获取任务密码
+  Future<String?> getTaskPassword() async {
+    await _ensureInitialized();
+    return _prefs!.getString(AppConstants.keyTaskPassword);
+  }
+
+  /// 设置任务密码
+  Future<void> setTaskPassword(String password) async {
+    await _ensureInitialized();
+    await _prefs!.setString(AppConstants.keyTaskPassword, password);
+  }
+
+  /// 获取任务是否激活
+  Future<bool> isTaskActive() async {
+    await _ensureInitialized();
+    return _prefs!.getBool(AppConstants.keyTaskActive) ?? false;
+  }
+
+  /// 设置任务激活状态
+  Future<void> setTaskActive(bool active) async {
+    await _ensureInitialized();
+    await _prefs!.setBool(AppConstants.keyTaskActive, active);
+  }
+
+  /// 清除任务（完成任务时）
+  Future<void> clearTask() async {
+    await _ensureInitialized();
+    await _prefs!.remove(AppConstants.keyTaskPassword);
+    await _prefs!.setBool(AppConstants.keyTaskActive, false);
+  }
+
   Future<void> _ensureInitialized() async {
     if (_prefs == null) {
       await initialize();

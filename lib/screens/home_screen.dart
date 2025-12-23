@@ -5,8 +5,10 @@ import '../providers/alarm_provider.dart';
 import '../widgets/timer_card.dart';
 import '../widgets/alarm_dialog.dart';
 import '../widgets/system_status_card.dart';
+import '../widgets/pin_input_dialog.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_theme.dart';
+import '../services/settings_service.dart';
 import 'package:vibration/vibration.dart';
 import '../services/nfc_service.dart';
 import '../services/timer_service.dart';
@@ -26,21 +28,95 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final NfcService _nfcService = NfcService();
   final ForegroundServiceManager _foregroundService = ForegroundServiceManager();
+  final SettingsService _settingsService = SettingsService();
   bool _isNfcAvailable = false;
   bool _isListening = false;
   bool _isServiceRunning = false;
+  bool _isTaskActive = false;
   String _statusMessage = '正在初始化...';
 
   @override
   void initState() {
     super.initState();
+    // 注册生命周期监听
+    WidgetsBinding.instance.addObserver(this);
     _checkForegroundService();
     _initializeNfc();
     _setupAlarmListener();
     _setupTimerListener();
+    _loadTaskStatus();
+  }
+
+  @override
+  void dispose() {
+    // 移除生命周期监听
+    WidgetsBinding.instance.removeObserver(this);
+    // 停止NFC监听
+    _nfcService.stopSession();
+    // 注意：不在这里停止前台服务，因为需要保持运行
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // 当应用从后台切换到前台时，刷新系统状态
+    if (state == AppLifecycleState.resumed) {
+      _refreshSystemStatus();
+    }
+  }
+
+  Future<void> _loadTaskStatus() async {
+    final isActive = await _settingsService.isTaskActive();
+    if (mounted) {
+      setState(() {
+        _isTaskActive = isActive;
+      });
+    }
+  }
+
+  /// 刷新系统状态（从系统自检页面返回时或应用从后台切换到前台时调用）
+  Future<void> _refreshSystemStatus() async {
+    // 重新检查前台服务状态
+    await _checkForegroundService();
+    
+    // 重新检查NFC状态（强制重新检查，不使用缓存）
+    final wasAvailable = _isNfcAvailable;
+    final available = await _nfcService.isAvailable();
+    
+    if (mounted) {
+      setState(() {
+        _isNfcAvailable = available;
+        
+        if (available) {
+          _statusMessage = '请将 NFC 卡贴近设备背部';
+          // 如果NFC可用但未在监听，重新启动监听
+          // 或者如果之前不可用但现在可用，也需要重新启动
+          if (!_isListening || !wasAvailable) {
+            _startNfcListening();
+          }
+        } else {
+          _statusMessage = 'NFC 不可用，请检查设备设置';
+          // NFC不可用时，停止监听
+          if (_isListening) {
+            _stopNfcListening();
+          }
+        }
+      });
+    }
+  }
+
+  /// 停止NFC监听
+  void _stopNfcListening() {
+    if (!_isListening) return;
+    
+    _nfcService.stopSession();
+    setState(() {
+      _isListening = false;
+    });
   }
 
   Future<void> _checkForegroundService() async {
@@ -190,12 +266,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  @override
-  void dispose() {
-    _nfcService.stopSession();
-    // 注意：不在这里停止前台服务，因为需要保持运行
-    super.dispose();
-  }
 
   /// 构建紧凑型状态卡片（系统正常时）
   Widget _buildCompactStatusCard(int activeTimerCount) {
@@ -250,11 +320,50 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          // 刷新按钮
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: '刷新系统状态',
+            onPressed: _refreshSystemStatus,
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: Center(
               child: Row(
                 children: [
+                  // 任务状态
+                  if (_isTaskActive) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.runningGreen.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(
+                              color: AppColors.runningGreen,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Text(
+                            '任务中',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.runningGreen,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   // 前台服务状态
                   Icon(
                     _isServiceRunning ? Icons.check_circle : Icons.error_outline,
@@ -370,13 +479,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           if (!isSystemReady) ...[
                             const SizedBox(height: 32),
                             ElevatedButton.icon(
-                              onPressed: () {
-                                Navigator.push(
+                              onPressed: () async {
+                                // 导航到系统自检页面
+                                await Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => const SystemCheckScreen(),
                                   ),
                                 );
+                                // 返回时重新检查系统状态（系统自检页面也会在前后台切换时自动刷新）
+                                _refreshSystemStatus();
                               },
                               icon: const Icon(Icons.build),
                               label: const Text('前往修复'),
@@ -392,53 +504,86 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ],
                           
-                          // 系统正常时显示操作提示
+                          // 系统正常时显示准备出警按钮或操作提示
                           if (isSystemReady) ...[
                             const SizedBox(height: 32),
-                            Container(
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                color: AppColors.darkBackground.withOpacity(0.5),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: AppColors.textSecondaryDark.withOpacity(0.3),
-                                  width: 1,
+                            if (!_isTaskActive)
+                              // 准备出警按钮（主按钮方案）
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: _showPrepareTaskDialog,
+                                  icon: const Icon(
+                                    Icons.local_fire_department,
+                                    size: 32,
+                                  ),
+                                  label: const Text(
+                                    '准备出警',
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primaryRed,
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size(double.infinity, 80),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                      vertical: 20,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              )
+                            else
+                              // 任务进行中状态
+                              Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
+                                  color: AppColors.runningGreen.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: AppColors.runningGreen.withOpacity(0.3),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.check_circle,
+                                          color: AppColors.runningGreen,
+                                          size: 24,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const Text(
+                                          '任务进行中',
+                                          style: TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.runningGreen,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    const Text(
+                                      '• 刷卡后自动开始计时\n• 返回时再次刷卡重置计时器\n• 超时未归将自动报警',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: AppColors.textSecondaryDark,
+                                        height: 1.6,
+                                      ),
+                                      textAlign: TextAlign.left,
+                                    ),
+                                  ],
                                 ),
                               ),
-                              child: Column(
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.lightbulb_outline,
-                                        size: 20,
-                                        color: AppColors.textSecondaryDark,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      const Text(
-                                        '操作提示',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w500,
-                                          color: AppColors.textPrimaryDark,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  const Text(
-                                    '• 刷卡后自动开始计时\n• 返回时再次刷卡重置计时器\n• 超时未归将自动报警',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: AppColors.textSecondaryDark,
-                                      height: 1.6,
-                                    ),
-                                    textAlign: TextAlign.left,
-                                  ),
-                                ],
-                              ),
-                            ),
                           ],
                         ],
                       ),
@@ -644,6 +789,29 @@ class _HomeScreenState extends State<HomeScreen> {
       _showLargeToast('${testFirefighter.name} 已开始计时', isError: false);
     } catch (e) {
       _showLargeToast('添加失败: $e', isError: true);
+    }
+  }
+
+  /// 显示准备出警对话框
+  Future<void> _showPrepareTaskDialog() async {
+    final pin = await showDialog<String>(
+      context: context,
+      builder: (context) => const PinInputDialog(
+        title: '准备出警',
+        subtitle: '请输入4位数密码',
+      ),
+    );
+
+    if (pin != null && pin.length == 4) {
+      // 保存密码和任务状态
+      await _settingsService.setTaskPassword(pin);
+      await _settingsService.setTaskActive(true);
+      
+      setState(() {
+        _isTaskActive = true;
+      });
+      
+      _showLargeToast('任务已创建，可以开始出警', isError: false);
     }
   }
 }
