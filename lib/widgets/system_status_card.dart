@@ -159,7 +159,6 @@ class _SystemStatusCardState extends State<SystemStatusCard> {
   Widget _buildStatusRow(IconData icon, String label, String value, bool isOk) {
     // 根据主题和状态确定文字颜色，确保高对比度
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
     
     // 图标颜色
     Color iconColor;
