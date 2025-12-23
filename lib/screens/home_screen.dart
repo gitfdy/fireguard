@@ -7,6 +7,7 @@ import '../widgets/alarm_dialog.dart';
 import '../widgets/system_status_card.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_theme.dart';
+import '../constants/app_themes.dart';
 import 'package:vibration/vibration.dart';
 import '../services/nfc_service.dart';
 import '../services/timer_service.dart';

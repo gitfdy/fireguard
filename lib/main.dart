@@ -96,8 +96,9 @@ class _FireGuardAppState extends State<FireGuardApp> {
         title: 'FireGuard 消防员安全监控',
         theme: AppThemes.getTheme(_currentTheme),
         darkTheme: AppThemes.getTheme(_currentTheme),
-        themeMode: _currentTheme == AppThemeType.light || 
-                   _currentTheme == AppThemeType.highContrastLight
+        themeMode:
+            _currentTheme == AppThemeType.light ||
+                _currentTheme == AppThemeType.highContrastLight
             ? ThemeMode.light
             : ThemeMode.dark,
         debugShowCheckedModeBanner: false,
