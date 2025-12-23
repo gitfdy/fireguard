@@ -24,12 +24,12 @@ class TimerProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> startTimer(String uid, String name) async {
-    await _timerService.startTimer(uid, name);
+  Future<void> startTimer(String uid, String name, {int? durationMinutes}) async {
+    await _timerService.startTimer(uid, name, durationMinutes: durationMinutes);
   }
 
-  Future<void> resetTimer(String uid, String name) async {
-    await _timerService.resetTimer(uid, name);
+  Future<void> resetTimer(String uid, String name, {int? durationMinutes}) async {
+    await _timerService.resetTimer(uid, name, durationMinutes: durationMinutes);
   }
 
   TimerRecord? getTimer(String uid) {

@@ -68,7 +68,7 @@ class TimerService {
   int getTimerDuration() => _timerDurationMinutes;
 
   /// 启动计时器
-  Future<void> startTimer(String uid, String name) async {
+  Future<void> startTimer(String uid, String name, {int? durationMinutes}) async {
     // 如果已存在，先停止旧的
     if (_activeTimers.containsKey(uid)) {
       await stopTimer(uid);
@@ -79,11 +79,14 @@ class TimerService {
       throw Exception('已达到最大并发计时器数量（${AppConstants.maxConcurrentTimers}）');
     }
 
+    // 使用指定的时长，如果没有指定则使用默认时长
+    final duration = durationMinutes ?? _timerDurationMinutes;
+
     final record = TimerRecord(
       uid: uid,
       name: name,
       startTime: DateTime.now(),
-      durationMinutes: _timerDurationMinutes,
+      durationMinutes: duration,
       isActive: true,
     );
 
@@ -130,9 +133,9 @@ class TimerService {
   }
 
   /// 重置计时器（同一 UID 再次刷卡）
-  Future<void> resetTimer(String uid, String name) async {
+  Future<void> resetTimer(String uid, String name, {int? durationMinutes}) async {
     await stopTimer(uid);
-    await startTimer(uid, name);
+    await startTimer(uid, name, durationMinutes: durationMinutes);
   }
 
   /// 获取所有活跃计时器（按紧急程度排序）

@@ -606,13 +606,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final existingTimer = timerProvider.getTimer(testFirefighter.uid);
     
     if (existingTimer != null) {
-      // 重置计时器
-      await timerProvider.resetTimer(testFirefighter.uid, testFirefighter.name);
-      _showLargeToast('${testFirefighter.name} 计时已重置', isError: false);
+      // 重置计时器（测试模式：使用1分钟）
+      await timerProvider.resetTimer(testFirefighter.uid, testFirefighter.name, durationMinutes: 1);
+      _showLargeToast('${testFirefighter.name} 计时已重置（测试模式：1分钟）', isError: false);
     } else {
-      // 启动新计时器
-      await timerProvider.startTimer(testFirefighter.uid, testFirefighter.name);
-      _showLargeToast('${testFirefighter.name} 已开始计时', isError: false);
+      // 启动新计时器（测试模式：使用1分钟）
+      await timerProvider.startTimer(testFirefighter.uid, testFirefighter.name, durationMinutes: 1);
+      _showLargeToast('${testFirefighter.name} 已开始计时（测试模式：1分钟）', isError: false);
     }
   }
 
