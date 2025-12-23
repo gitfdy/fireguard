@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'constants/app_themes.dart';
 import 'providers/timer_provider.dart';
 import 'providers/alarm_provider.dart';
+import 'providers/theme_provider.dart';
 import 'services/database_service.dart';
 import 'services/timer_service.dart';
 import 'services/alarm_service.dart';
@@ -48,65 +49,39 @@ Future<void> _initializeServices() async {
   });
 }
 
+// 全局主题提供者实例（用于初始化）
+ThemeProvider? _themeProvider;
+
 Future<void> _startForegroundService() async {
   final serviceManager = ForegroundServiceManager();
   await serviceManager.start();
 }
 
-class FireGuardApp extends StatefulWidget {
+class FireGuardApp extends StatelessWidget {
   const FireGuardApp({super.key});
 
   @override
-  State<FireGuardApp> createState() => _FireGuardAppState();
-}
-
-class _FireGuardAppState extends State<FireGuardApp> {
-  AppThemeType _currentTheme = AppThemeType.dark;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadTheme();
-  }
-
-  Future<void> _loadTheme() async {
-    final settingsService = SettingsService();
-    final themeType = await settingsService.getThemeType();
-    if (mounted) {
-      setState(() {
-        _currentTheme = themeType;
-      });
-    }
-  }
-
-  void _updateTheme(AppThemeType themeType) {
-    setState(() {
-      _currentTheme = themeType;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    // 使用Builder确保能够获取正确的context
+    // 创建主题提供者
+    _themeProvider ??= ThemeProvider();
+    _themeProvider!.initialize();
+
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => TimerProvider()),
         ChangeNotifierProvider(create: (_) => AlarmProvider()),
+        ChangeNotifierProvider.value(value: _themeProvider!),
       ],
-      child: Builder(
-        builder: (context) {
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
           return MaterialApp(
             title: 'FireGuard 消防员安全监控',
-            theme: AppThemes.getTheme(_currentTheme),
-            darkTheme: AppThemes.getTheme(_currentTheme),
-            themeMode:
-                _currentTheme == AppThemeType.light ||
-                    _currentTheme == AppThemeType.highContrastLight
-                ? ThemeMode.light
-                : ThemeMode.dark,
+            theme: themeProvider.theme,
+            darkTheme: themeProvider.theme,
+            themeMode: themeProvider.themeMode,
             debugShowCheckedModeBanner: false,
-            home: HomeScreen(onThemeChanged: _updateTheme),
-            key: ValueKey(_currentTheme), // 使用key强制重建以应用新主题
+            home: const HomeScreen(),
+            key: ValueKey(themeProvider.currentTheme), // 使用key强制重建以应用新主题
           );
         },
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/settings_service.dart';
 import '../services/timer_service.dart';
 import '../services/database_service.dart';
@@ -6,12 +7,12 @@ import '../constants/app_constants.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_theme.dart';
 import '../constants/app_themes.dart';
+import '../providers/theme_provider.dart';
 import 'history_screen.dart';
 import 'emergency_phones_screen.dart';
 import 'system_check_screen.dart';
 import 'statistics_screen.dart';
 import 'register_screen.dart';
-import 'home_screen.dart';
 
 /// 设置页面
 class SettingsScreen extends StatefulWidget {
@@ -25,7 +26,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final SettingsService _settingsService = SettingsService();
   final TextEditingController _durationController = TextEditingController();
   bool _alarmSoundEnabled = true;
-  AppThemeType _currentTheme = AppThemeType.dark;
 
   @override
   void initState() {
@@ -36,12 +36,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadSettings() async {
     final duration = await _settingsService.getTimerDuration();
     final soundEnabled = await _settingsService.isAlarmSoundEnabled();
-    final themeType = await _settingsService.getThemeType();
     
     setState(() {
       _alarmSoundEnabled = soundEnabled;
       _durationController.text = duration.toString();
-      _currentTheme = themeType;
     });
   }
 
@@ -90,7 +88,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   /// 显示主题选择器
-  void _showThemeSelector() {
+  void _showThemeSelector(ThemeProvider themeProvider) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -122,7 +120,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             ...AppThemeType.values.map((themeType) {
-              final isSelected = _currentTheme == themeType;
+              final isSelected = themeProvider.currentTheme == themeType;
               return ListTile(
                 leading: Icon(
                   isSelected ? Icons.check_circle : Icons.circle_outlined,
@@ -140,25 +138,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: const TextStyle(fontSize: 14),
                 ),
                 onTap: () async {
-                  await _settingsService.setThemeType(themeType);
-                  setState(() {
-                    _currentTheme = themeType;
-                  });
+                  await themeProvider.setTheme(themeType);
                   Navigator.pop(context);
-                  
-                  // 通知主应用更新主题
-                  // 通过Navigator向上查找HomeScreen并调用回调
-                  final rootNavigator = Navigator.of(context, rootNavigator: true);
-                  final rootContext = rootNavigator.context;
-                  
-                  // 查找HomeScreen的State
-                  final homeScreenState = rootContext.findAncestorStateOfType<State<HomeScreen>>();
-                  if (homeScreenState != null) {
-                    final homeScreen = homeScreenState.widget;
-                    if (homeScreen.onThemeChanged != null) {
-                      homeScreen.onThemeChanged!(themeType);
-                    }
-                  }
                   
                   _showSnackBar(
                     '主题已切换',
@@ -260,19 +241,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Card(
-            child: ListTile(
-              title: const Text('应用主题'),
-              subtitle: Text(AppThemes.getThemeDescription(_currentTheme)),
-              leading: const Icon(
-                Icons.palette,
-                size: 28,
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                _showThemeSelector();
-              },
-            ),
+          Consumer<ThemeProvider>(
+            builder: (context, themeProvider, child) {
+              return Card(
+                child: ListTile(
+                  title: const Text('应用主题'),
+                  subtitle: Text(AppThemes.getThemeDescription(themeProvider.currentTheme)),
+                  leading: const Icon(
+                    Icons.palette,
+                    size: 28,
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    _showThemeSelector(themeProvider);
+                  },
+                ),
+              );
+            },
           ),
           const SizedBox(height: 16),
           Card(
