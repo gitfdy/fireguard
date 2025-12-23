@@ -14,7 +14,6 @@ import '../services/alarm_service.dart';
 import '../services/foreground_service.dart';
 import '../models/firefighter.dart';
 import '../models/alarm_record.dart';
-import 'register_screen.dart';
 import 'settings_screen.dart';
 import 'system_check_screen.dart';
 
@@ -239,7 +238,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('FireGuard 消防员安全监控'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.local_fire_department,
+              color: AppColors.primaryRed,
+              size: 32,
+            ),
+          ],
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -474,20 +482,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const RegisterScreen()),
-          );
-        },
-        icon: const Icon(Icons.person_add, size: 28),
-        label: const Text(
-          '注册新消防员',
-          style: TextStyle(fontSize: 20),
-        ),
-        tooltip: '注册新消防员',
       ),
     );
   }

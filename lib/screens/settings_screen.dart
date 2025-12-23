@@ -9,6 +9,7 @@ import 'history_screen.dart';
 import 'emergency_phones_screen.dart';
 import 'system_check_screen.dart';
 import 'statistics_screen.dart';
+import 'register_screen.dart';
 
 /// 设置页面
 class SettingsScreen extends StatefulWidget {
@@ -145,6 +146,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: ListTile(
+              title: const Text('注册新消防员'),
+              subtitle: const Text('为新消防员创建并写入NFC卡片'),
+              leading: Icon(
+                Icons.person_add,
+                color: AppColors.primaryRed,
+                size: 28,
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const RegisterScreen(),
+                  ),
+                );
+              },
             ),
           ),
           const SizedBox(height: 16),
