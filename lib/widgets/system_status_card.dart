@@ -91,6 +91,14 @@ class _SystemStatusCardState extends State<SystemStatusCard> {
                       color: isHealthy 
                           ? AppColors.runningGreen 
                           : AppColors.warningOrange,
+                      shadows: [
+                        // 添加文字阴影提高可读性（特别是在浅色背景上）
+                        Shadow(
+                          offset: const Offset(0, 1),
+                          blurRadius: 2,
+                          color: Colors.black.withOpacity(0.2),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -149,12 +157,39 @@ class _SystemStatusCardState extends State<SystemStatusCard> {
   }
 
   Widget _buildStatusRow(IconData icon, String label, String value, bool isOk) {
+    // 根据主题和状态确定文字颜色，确保高对比度
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    // 图标颜色
+    Color iconColor;
+    if (!isOk) {
+      // 错误状态：使用警告橙色
+      iconColor = AppColors.warningOrange;
+    } else {
+      // 正常状态：使用主题颜色
+      iconColor = theme.colorScheme.onSurface.withOpacity(0.8);
+    }
+    
+    // 标签颜色
+    Color labelColor = theme.colorScheme.onSurface.withOpacity(0.7);
+    
+    // 值颜色
+    Color valueColor;
+    if (!isOk) {
+      // 错误状态：使用警告橙色，加粗以提高可见性
+      valueColor = AppColors.warningOrange;
+    } else {
+      // 正常状态：使用主题主文字颜色，确保高对比度
+      valueColor = theme.colorScheme.onSurface;
+    }
+    
     return Row(
       children: [
         Icon(
           icon,
           size: 18,
-          color: isOk ? AppColors.textSecondaryDark : AppColors.warningOrange,
+          color: iconColor,
         ),
         const SizedBox(width: 6),
         Expanded(
@@ -163,9 +198,10 @@ class _SystemStatusCardState extends State<SystemStatusCard> {
             children: [
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
-                  color: AppColors.textSecondaryDark,
+                  color: labelColor,
+                  fontWeight: FontWeight.w500, // 稍微加粗提高可读性
                 ),
               ),
               const SizedBox(height: 2),
@@ -173,8 +209,8 @@ class _SystemStatusCardState extends State<SystemStatusCard> {
                 value,
                 style: TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: isOk ? AppColors.textPrimaryDark : AppColors.warningOrange,
+                  fontWeight: FontWeight.w700, // 加粗提高可读性
+                  color: valueColor,
                 ),
               ),
             ],
