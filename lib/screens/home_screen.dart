@@ -20,7 +20,9 @@ import '../utils/uid_generator.dart';
 
 /// 主监控屏
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final Function(AppThemeType)? onThemeChanged;
+  
+  const HomeScreen({super.key, this.onThemeChanged});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();

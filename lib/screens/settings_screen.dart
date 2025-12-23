@@ -5,6 +5,7 @@ import '../services/database_service.dart';
 import '../constants/app_constants.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_theme.dart';
+import '../constants/app_themes.dart';
 import 'history_screen.dart';
 import 'emergency_phones_screen.dart';
 import 'system_check_screen.dart';
@@ -23,6 +24,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final SettingsService _settingsService = SettingsService();
   final TextEditingController _durationController = TextEditingController();
   bool _alarmSoundEnabled = true;
+  AppThemeType _currentTheme = AppThemeType.dark;
 
   @override
   void initState() {
@@ -33,10 +35,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadSettings() async {
     final duration = await _settingsService.getTimerDuration();
     final soundEnabled = await _settingsService.isAlarmSoundEnabled();
+    final themeType = await _settingsService.getThemeType();
     
     setState(() {
       _alarmSoundEnabled = soundEnabled;
       _durationController.text = duration.toString();
+      _currentTheme = themeType;
     });
   }
 
@@ -80,6 +84,91 @@ class _SettingsScreenState extends State<SettingsScreen> {
       SnackBar(
         content: Text(message),
         backgroundColor: isError ? AppColors.timeoutRed : AppColors.successGreen,
+      ),
+    );
+  }
+
+  /// 显示主题选择器
+  void _showThemeSelector() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Theme.of(context).dividerColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: Text(
+                '选择主题',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ...AppThemeType.values.map((themeType) {
+              final isSelected = _currentTheme == themeType;
+              return ListTile(
+                leading: Icon(
+                  isSelected ? Icons.check_circle : Icons.circle_outlined,
+                  color: isSelected ? AppColors.primaryRed : null,
+                  size: 28,
+                ),
+                title: Text(
+                  AppThemes.getThemeName(themeType),
+                  style: TextStyle(
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+                subtitle: Text(
+                  AppThemes.getThemeDescription(themeType),
+                  style: const TextStyle(fontSize: 14),
+                ),
+                onTap: () async {
+                  await _settingsService.setThemeType(themeType);
+                  setState(() {
+                    _currentTheme = themeType;
+                  });
+                  Navigator.pop(context);
+                  
+                  // 通知主应用更新主题
+                  // 通过Navigator获取MaterialApp并触发重建
+                  final navigator = Navigator.of(context, rootNavigator: true);
+                  final materialApp = navigator.context.findAncestorWidgetOfExactType<MaterialApp>();
+                  if (materialApp != null) {
+                    // 通过context向上查找FireGuardApp的State
+                    final appState = navigator.context.findAncestorStateOfType<State<StatefulWidget>>();
+                    if (appState != null && appState.mounted) {
+                      // 如果找到了State，尝试调用_updateTheme方法
+                      // 这里使用反射或者直接setState
+                      appState.setState(() {});
+                    }
+                  }
+                  
+                  _showSnackBar(
+                    '主题已切换，返回首页查看效果',
+                    isError: false,
+                  );
+                },
+              );
+            }).toList(),
+            const SizedBox(height: 10),
+          ],
+        ),
       ),
     );
   }
@@ -166,6 +255,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     builder: (context) => const RegisterScreen(),
                   ),
                 );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: ListTile(
+              title: const Text('应用主题'),
+              subtitle: Text(AppThemes.getThemeDescription(_currentTheme)),
+              leading: const Icon(
+                Icons.palette,
+                size: 28,
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                _showThemeSelector();
               },
             ),
           ),

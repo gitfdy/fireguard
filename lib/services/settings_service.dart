@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
+import '../constants/app_themes.dart';
 
 /// 设置服务
 class SettingsService {
@@ -50,6 +51,22 @@ class SettingsService {
   Future<void> setAlarmSoundEnabled(bool enabled) async {
     await _ensureInitialized();
     await _prefs!.setBool(AppConstants.keyAlarmSoundEnabled, enabled);
+  }
+
+  /// 获取主题类型
+  Future<AppThemeType> getThemeType() async {
+    await _ensureInitialized();
+    final themeIndex = _prefs!.getInt(AppConstants.keyThemeType);
+    if (themeIndex == null) {
+      return AppThemeType.dark; // 默认暗色主题
+    }
+    return AppThemeType.values[themeIndex];
+  }
+
+  /// 设置主题类型
+  Future<void> setThemeType(AppThemeType themeType) async {
+    await _ensureInitialized();
+    await _prefs!.setInt(AppConstants.keyThemeType, themeType.index);
   }
 
   Future<void> _ensureInitialized() async {

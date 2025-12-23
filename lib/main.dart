@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'constants/app_theme.dart';
+import 'constants/app_themes.dart';
 import 'providers/timer_provider.dart';
 import 'providers/alarm_provider.dart';
 import 'services/database_service.dart';
@@ -53,8 +53,37 @@ Future<void> _startForegroundService() async {
   await serviceManager.start();
 }
 
-class FireGuardApp extends StatelessWidget {
+class FireGuardApp extends StatefulWidget {
   const FireGuardApp({super.key});
+
+  @override
+  State<FireGuardApp> createState() => _FireGuardAppState();
+}
+
+class _FireGuardAppState extends State<FireGuardApp> {
+  AppThemeType _currentTheme = AppThemeType.dark;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTheme();
+  }
+
+  Future<void> _loadTheme() async {
+    final settingsService = SettingsService();
+    final themeType = await settingsService.getThemeType();
+    if (mounted) {
+      setState(() {
+        _currentTheme = themeType;
+      });
+    }
+  }
+
+  void _updateTheme(AppThemeType themeType) {
+    setState(() {
+      _currentTheme = themeType;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,11 +94,15 @@ class FireGuardApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'FireGuard 消防员安全监控',
-        theme: AppTheme.darkTheme, // 始终使用暗色主题
-        darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.dark, // 强制暗色模式
+        theme: AppThemes.getTheme(_currentTheme),
+        darkTheme: AppThemes.getTheme(_currentTheme),
+        themeMode: _currentTheme == AppThemeType.light || 
+                   _currentTheme == AppThemeType.highContrastLight
+            ? ThemeMode.light
+            : ThemeMode.dark,
         debugShowCheckedModeBanner: false,
-        home: const HomeScreen(),
+        home: HomeScreen(onThemeChanged: _updateTheme),
+        key: ValueKey(_currentTheme), // 使用key强制重建以应用新主题
       ),
     );
   }
