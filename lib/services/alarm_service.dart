@@ -144,11 +144,19 @@ class AlarmService {
       await stopAlarmSound();
       _vibrationTimer?.cancel();
       
-      // 注意：不停止计时器，因为：
-      // 1. 用户可能希望继续监控该人员
-      // 2. 用户可以通过再次刷卡来重置计时器
-      // 3. 由于已经从_activeAlarms中移除，checkAndTriggerAlarms不会再次触发报警
-      // 4. 只有当用户重新刷卡重置计时器后，如果再次超时，才会触发新的报警
+      // 重置计时器并重新开始计时
+      // 这样用户可以继续监控该人员，计时器从0开始重新计时
+      final timerService = TimerService();
+      final timers = timerService.getActiveTimers();
+      final timer = timers.firstWhere(
+        (t) => t.uid == uid,
+        orElse: () => timers.isNotEmpty ? timers.first : throw Exception('Timer not found'),
+      );
+      
+      if (timer.uid == uid) {
+        // 重置计时器：停止旧的，启动新的
+        await timerService.resetTimer(uid, alarm.name);
+      }
       
       _notifyListeners();
     }
