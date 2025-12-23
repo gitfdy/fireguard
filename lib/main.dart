@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'constants/app_themes.dart';
 import 'providers/timer_provider.dart';
 import 'providers/alarm_provider.dart';
 import 'providers/theme_provider.dart';
