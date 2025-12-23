@@ -539,50 +539,57 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 ),
                               )
                             else
-                              // 任务进行中状态
-                              Container(
-                                padding: const EdgeInsets.all(20),
-                                decoration: BoxDecoration(
-                                  color: AppColors.runningGreen.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: AppColors.runningGreen.withOpacity(0.3),
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                              // 任务进行中状态 + 任务完成按钮
+                              Column(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(20),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.runningGreen.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: AppColors.runningGreen.withOpacity(0.3),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: Column(
                                       children: [
-                                        Icon(
-                                          Icons.check_circle,
-                                          color: AppColors.runningGreen,
-                                          size: 24,
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.check_circle,
+                                              color: AppColors.runningGreen,
+                                              size: 24,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            const Text(
+                                              '任务进行中',
+                                              style: TextStyle(
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.runningGreen,
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                        const SizedBox(width: 8),
+                                        const SizedBox(height: 12),
                                         const Text(
-                                          '任务进行中',
+                                          '• 刷卡后自动开始计时\n• 返回时再次刷卡重置计时器\n• 超时未归将自动报警',
                                           style: TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                            color: AppColors.runningGreen,
+                                            fontSize: 16,
+                                            color: AppColors.textSecondaryDark,
+                                            height: 1.6,
                                           ),
+                                          textAlign: TextAlign.left,
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 12),
-                                    const Text(
-                                      '• 刷卡后自动开始计时\n• 返回时再次刷卡重置计时器\n• 超时未归将自动报警',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: AppColors.textSecondaryDark,
-                                        height: 1.6,
-                                      ),
-                                      textAlign: TextAlign.left,
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  // 任务完成按钮（长按触发）
+                                  _buildCompleteTaskButton(),
+                                ],
                               ),
                           ],
                         ],
@@ -812,6 +819,208 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       });
       
       _showLargeToast('任务已创建，可以开始出警', isError: false);
+    }
+  }
+
+  /// 构建任务完成按钮（长按触发）
+  Widget _buildCompleteTaskButton() {
+    return GestureDetector(
+      onLongPress: () async {
+        // 长按触发，提供触觉反馈
+        if (await Vibration.hasVibrator()) {
+          Vibration.vibrate(duration: 50);
+        }
+        // 显示密码验证对话框
+        await _showCompleteTaskDialog();
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        decoration: BoxDecoration(
+          color: AppColors.successGreen,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.successGreen.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.check_circle,
+              color: Colors.white,
+              size: 32,
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              '任务完成',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                letterSpacing: 1.0,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Icons.touch_app,
+              color: Colors.white.withOpacity(0.8),
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 显示任务完成对话框（包含密码验证）
+  Future<void> _showCompleteTaskDialog() async {
+    // 检查是否有任务
+    final isTaskActive = await _settingsService.isTaskActive();
+    if (!isTaskActive) {
+      _showLargeToast('当前没有进行中的任务', isError: false);
+      return;
+    }
+
+    // 获取保存的密码
+    final savedPassword = await _settingsService.getTaskPassword();
+    if (savedPassword == null || savedPassword.isEmpty) {
+      // 如果没有密码，直接显示确认对话框
+      _showCompleteTaskConfirmDialog();
+      return;
+    }
+
+    // 显示密码验证对话框
+    final pin = await showDialog<String>(
+      context: context,
+      builder: (context) => const PinInputDialog(
+        title: '验证密码',
+        subtitle: '请输入创建任务时的4位数密码',
+        isVerification: true,
+      ),
+    );
+
+    if (pin == null) {
+      return; // 用户取消
+    }
+
+    // 验证密码
+    if (pin != savedPassword) {
+      _showLargeToast('密码错误，无法完成任务', isError: true);
+      return;
+    }
+
+    // 密码正确，显示确认对话框
+    _showCompleteTaskConfirmDialog();
+  }
+
+  /// 显示任务完成确认对话框
+  void _showCompleteTaskConfirmDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: AppColors.warningOrange,
+              size: 28,
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '确认完成任务？',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          '此操作将：\n'
+          '• 清除所有活跃的计时器\n'
+          '• 清除所有活跃的报警\n'
+          '• 更新所有历史记录为已完成\n\n'
+          '此操作不可撤销，请确认是否继续？',
+          style: TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _performCompleteTask();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.successGreen,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('确认完成'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 执行完成任务操作
+  Future<void> _performCompleteTask() async {
+    try {
+      // 显示加载提示
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // 清除所有计时器
+      final timerProvider = Provider.of<TimerProvider>(context, listen: false);
+      await timerProvider.clearAllTimers();
+
+      // 清除所有报警
+      final alarmProvider = Provider.of<AlarmProvider>(context, listen: false);
+      await alarmProvider.clearAllAlarms();
+
+      // 清除任务状态
+      await _settingsService.clearTask();
+
+      // 更新本地状态
+      if (mounted) {
+        setState(() {
+          _isTaskActive = false;
+        });
+      }
+
+      // 关闭加载提示
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
+      // 显示成功提示
+      if (mounted) {
+        _showLargeToast('任务已完成，所有计时器和报警已清除', isError: false);
+      }
+    } catch (e) {
+      // 关闭加载提示
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
+      // 显示错误提示
+      if (mounted) {
+        _showLargeToast('操作失败: $e', isError: true);
+      }
     }
   }
 }
