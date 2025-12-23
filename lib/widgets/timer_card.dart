@@ -82,7 +82,8 @@ class _TimerCardState extends State<TimerCard> {
       // 警告时闪烁
       opacity = _isBlinking ? (DateTime.now().millisecond % 1000 < 500 ? 1.0 : 0.6) : 1.0;
     } else {
-      textColor = AppColors.textPrimaryDark;
+      // 正常状态：使用主题颜色，确保在不同主题下都清晰可见
+      textColor = Theme.of(context).colorScheme.onSurface;
       backgroundColor = Colors.transparent;
       opacity = 1.0;
     }
@@ -105,18 +106,19 @@ class _TimerCardState extends State<TimerCard> {
                     children: [
                       Text(
                         timer.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: AppTheme.fontSizeName,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textPrimaryDark,
+                          fontWeight: FontWeight.w600, // 加粗提高可读性
+                          color: Theme.of(context).colorScheme.onSurface, // 使用主题颜色
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'UID: ${timer.uid}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
-                          color: AppColors.textSecondaryDark,
+                          color: Theme.of(context).textTheme.bodyMedium?.color ?? 
+                                 Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                         ),
                       ),
                     ],
