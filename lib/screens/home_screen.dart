@@ -16,6 +16,7 @@ import '../models/firefighter.dart';
 import '../models/alarm_record.dart';
 import 'settings_screen.dart';
 import 'system_check_screen.dart';
+import '../utils/uid_generator.dart';
 
 /// 主监控屏
 class HomeScreen extends StatefulWidget {
@@ -483,7 +484,167 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
       ),
+      floatingActionButton: _buildTestMenuButton(),
     );
+  }
+
+  /// 构建测试菜单按钮
+  Widget _buildTestMenuButton() {
+    return FloatingActionButton(
+      onPressed: () {
+        _showTestMenu(context);
+      },
+      backgroundColor: AppColors.primaryRed,
+      child: const Icon(Icons.bug_report, color: Colors.white),
+      tooltip: '测试功能',
+    );
+  }
+
+  /// 显示测试菜单
+  void _showTestMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.darkBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: AppColors.textSecondaryDark,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.nfc,
+                color: AppColors.runningGreen,
+                size: 28,
+              ),
+              title: const Text(
+                '模拟 NFC 刷卡',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textPrimaryDark,
+                ),
+              ),
+              subtitle: const Text(
+                '模拟已刷 NFC 卡片后出警状态',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textSecondaryDark,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _simulateNfcCard();
+              },
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(
+                Icons.person_add,
+                color: AppColors.primaryRed,
+                size: 28,
+              ),
+              title: const Text(
+                '添加出警人员',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textPrimaryDark,
+                ),
+              ),
+              subtitle: const Text(
+                '模拟添加新的出警人员并开始计时',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textSecondaryDark,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _addTestFirefighter();
+              },
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 模拟 NFC 刷卡
+  Future<void> _simulateNfcCard() async {
+    // 创建一个测试消防员
+    final testFirefighter = Firefighter(
+      uid: 'TEST001',
+      name: '测试消防员',
+      createdAt: DateTime.now(),
+    );
+
+    // 震动反馈
+    try {
+      if (await Vibration.hasVibrator()) {
+        await Vibration.vibrate(duration: 100);
+      }
+    } catch (e) {
+      // 忽略震动错误
+    }
+
+    // 模拟 NFC 刷卡逻辑
+    final timerProvider = Provider.of<TimerProvider>(context, listen: false);
+    final existingTimer = timerProvider.getTimer(testFirefighter.uid);
+    
+    if (existingTimer != null) {
+      // 重置计时器
+      await timerProvider.resetTimer(testFirefighter.uid, testFirefighter.name);
+      _showLargeToast('${testFirefighter.name} 计时已重置', isError: false);
+    } else {
+      // 启动新计时器
+      await timerProvider.startTimer(testFirefighter.uid, testFirefighter.name);
+      _showLargeToast('${testFirefighter.name} 已开始计时', isError: false);
+    }
+  }
+
+  /// 添加测试出警人员
+  Future<void> _addTestFirefighter() async {
+    // 生成一个唯一的 UID
+    final uid = UidGenerator.generate();
+    
+    // 创建测试消防员（使用序号命名）
+    final timerProvider = Provider.of<TimerProvider>(context, listen: false);
+    final activeCount = timerProvider.activeTimers.length;
+    final testFirefighter = Firefighter(
+      uid: uid,
+      name: '测试人员${activeCount + 1}',
+      createdAt: DateTime.now(),
+    );
+
+    // 震动反馈
+    try {
+      if (await Vibration.hasVibrator()) {
+        await Vibration.vibrate(duration: 100);
+      }
+    } catch (e) {
+      // 忽略震动错误
+    }
+
+    // 启动计时器
+    try {
+      await timerProvider.startTimer(testFirefighter.uid, testFirefighter.name);
+      _showLargeToast('${testFirefighter.name} 已开始计时', isError: false);
+    } catch (e) {
+      _showLargeToast('添加失败: $e', isError: true);
+    }
   }
 }
 
