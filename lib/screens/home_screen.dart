@@ -16,6 +16,7 @@ import '../models/firefighter.dart';
 import '../models/alarm_record.dart';
 import 'register_screen.dart';
 import 'settings_screen.dart';
+import 'system_check_screen.dart';
 
 /// 主监控屏
 class HomeScreen extends StatefulWidget {
@@ -196,6 +197,44 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  /// 构建紧凑型状态卡片（系统正常时）
+  Widget _buildCompactStatusCard(int activeTimerCount) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.runningGreen.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.check_circle,
+            color: AppColors.runningGreen,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '系统运行正常',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: AppColors.runningGreen,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            '监控 $activeTimerCount 人',
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondaryDark,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -248,45 +287,152 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context, timerProvider, child) {
           final timers = timerProvider.activeTimers;
           
+          // 系统是否就绪
+          final isSystemReady = _isServiceRunning && _isNfcAvailable;
+          
           return Column(
             children: [
-              // 系统状态卡片
-              SystemStatusCard(
-                isServiceRunning: _isServiceRunning,
-                isNfcAvailable: _isNfcAvailable,
-                activeTimerCount: timers.length,
-              ),
+              // 系统状态卡片（仅在系统未就绪时显示，或作为紧凑型显示）
+              if (!isSystemReady)
+                SystemStatusCard(
+                  isServiceRunning: _isServiceRunning,
+                  isNfcAvailable: _isNfcAvailable,
+                  activeTimerCount: timers.length,
+                )
+              else if (timers.isEmpty)
+                // 系统正常但无计时器时，显示精简状态卡片
+                _buildCompactStatusCard(timers.length),
               
               if (timers.isEmpty)
                 Expanded(
                   child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.nfc,
-                          size: 80,
-                          color: AppColors.textSecondaryDark,
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          _statusMessage,
-                          style: const TextStyle(
-                            fontSize: AppTheme.fontSizeBody,
-                            color: AppColors.textSecondaryDark,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // 大号状态图标
+                          Container(
+                            width: 120,
+                            height: 120,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isSystemReady
+                                  ? AppColors.runningGreen.withOpacity(0.1)
+                                  : AppColors.warningOrange.withOpacity(0.1),
+                            ),
+                            child: Icon(
+                              isSystemReady ? Icons.nfc : Icons.error_outline,
+                              size: 64,
+                              color: isSystemReady
+                                  ? AppColors.runningGreen
+                                  : AppColors.warningOrange,
+                            ),
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        const Text(
-                          '💡 提示：刷卡后自动开始计时，\n返回时再次刷卡即可重置计时器',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: AppColors.textSecondaryDark,
+                          const SizedBox(height: 32),
+                          
+                          // 主状态文字
+                          Text(
+                            isSystemReady ? '系统运行正常' : '系统未就绪',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                              color: isSystemReady
+                                  ? AppColors.runningGreen
+                                  : AppColors.warningOrange,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+                          const SizedBox(height: 16),
+                          
+                          // 状态描述
+                          Text(
+                            isSystemReady
+                                ? '等待 NFC 刷卡'
+                                : _statusMessage,
+                            style: const TextStyle(
+                              fontSize: AppTheme.fontSizeBody,
+                              color: AppColors.textSecondaryDark,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          
+                          // 系统未就绪时显示修复按钮
+                          if (!isSystemReady) ...[
+                            const SizedBox(height: 32),
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const SystemCheckScreen(),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.build),
+                              label: const Text('前往修复'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.warningOrange,
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(200, 56),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 16,
+                                ),
+                              ),
+                            ),
+                          ],
+                          
+                          // 系统正常时显示操作提示
+                          if (isSystemReady) ...[
+                            const SizedBox(height: 32),
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: AppColors.darkBackground.withOpacity(0.5),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: AppColors.textSecondaryDark.withOpacity(0.3),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.lightbulb_outline,
+                                        size: 20,
+                                        color: AppColors.textSecondaryDark,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const Text(
+                                        '操作提示',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w500,
+                                          color: AppColors.textPrimaryDark,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    '• 刷卡后自动开始计时\n• 返回时再次刷卡重置计时器\n• 超时未归将自动报警',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: AppColors.textSecondaryDark,
+                                      height: 1.6,
+                                    ),
+                                    textAlign: TextAlign.left,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
                 )
@@ -301,19 +447,30 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               
-              // 底部提示条
-              Container(
-                padding: const EdgeInsets.all(16),
-                color: AppColors.darkBackground,
-                child: Text(
-                  _statusMessage,
-                  style: const TextStyle(
-                    fontSize: AppTheme.fontSizeBody,
-                    color: AppColors.textSecondaryDark,
+              // 底部提示条（仅在有计时器时显示操作提示）
+              if (timers.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  color: AppColors.darkBackground,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.nfc,
+                        size: 18,
+                        color: AppColors.textSecondaryDark,
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        '请将 NFC 卡贴近设备背部',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: AppColors.textSecondaryDark,
+                        ),
+                      ),
+                    ],
                   ),
-                  textAlign: TextAlign.center,
                 ),
-              ),
             ],
           );
         },
