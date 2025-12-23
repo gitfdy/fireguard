@@ -36,6 +36,10 @@ class TimerProvider extends ChangeNotifier {
     return _timerService.getTimer(uid);
   }
 
+  Future<void> clearAllTimers() async {
+    await _timerService.clearAllTimers();
+  }
+
   @override
   void dispose() {
     _timerService.removeListener(_onTimersUpdated);

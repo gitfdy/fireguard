@@ -28,6 +28,10 @@ class AlarmProvider extends ChangeNotifier {
     await _alarmService.handleAlarm(uid);
   }
 
+  Future<void> clearAllAlarms() async {
+    await _alarmService.clearAllAlarms();
+  }
+
   @override
   void dispose() {
     _alarmService.removeListener(_onAlarmsUpdated);

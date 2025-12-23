@@ -211,6 +211,20 @@ class TimerService {
     });
   }
 
+  /// 清除所有计时器
+  Future<void> clearAllTimers() async {
+    // 停止所有计时器并更新历史记录
+    final uids = _activeTimers.keys.toList();
+    for (final uid in uids) {
+      await stopTimer(uid);
+    }
+    
+    // 清除数据库中的活跃计时器
+    await DatabaseService().clearActiveTimers();
+    
+    _notifyListeners();
+  }
+
   /// 清理资源
   void dispose() {
     _updateTimer?.cancel();

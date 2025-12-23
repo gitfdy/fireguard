@@ -167,6 +167,27 @@ class AlarmService {
     return _activeAlarms.values.toList();
   }
 
+  /// 清除所有报警
+  Future<void> clearAllAlarms() async {
+    // 将所有活跃报警标记为已处理
+    final alarms = _activeAlarms.values.toList();
+    for (final alarm in alarms) {
+      await DatabaseService().updateAlarmRecordHandled(
+        alarm.id,
+        DateTime.now(),
+      );
+    }
+    
+    // 清除活跃报警列表
+    _activeAlarms.clear();
+    
+    // 停止报警音和震动
+    await stopAlarmSound();
+    _vibrationTimer?.cancel();
+    
+    _notifyListeners();
+  }
+
   /// 添加监听器
   void addListener(Function(List<AlarmRecord>) listener) {
     _listeners.add(listener);

@@ -8,6 +8,8 @@ import '../constants/app_colors.dart';
 import '../constants/app_theme.dart';
 import '../constants/app_themes.dart';
 import '../providers/theme_provider.dart';
+import '../providers/timer_provider.dart';
+import '../providers/alarm_provider.dart';
 import 'history_screen.dart';
 import 'emergency_phones_screen.dart';
 import 'system_check_screen.dart';
@@ -341,9 +343,129 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: _exportLogs,
             ),
           ),
+          const SizedBox(height: 24),
+          // 任务完成按钮
+          Card(
+            color: AppColors.successGreen.withOpacity(0.1),
+            child: ListTile(
+              title: const Text(
+                '任务完成',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.successGreen,
+                ),
+              ),
+              subtitle: const Text('清除所有计时器和报警，结束本次任务'),
+              leading: Icon(
+                Icons.check_circle,
+                color: AppColors.successGreen,
+                size: 32,
+              ),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: _showCompleteTaskDialog,
+            ),
+          ),
+          const SizedBox(height: 16),
         ],
       ),
     );
+  }
+
+  /// 显示任务完成确认对话框
+  void _showCompleteTaskDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: AppColors.warningOrange,
+              size: 28,
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '确认完成任务？',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: const Text(
+          '此操作将：\n'
+          '• 清除所有活跃的计时器\n'
+          '• 清除所有活跃的报警\n'
+          '• 更新所有历史记录为已完成\n\n'
+          '此操作不可撤销，请确认是否继续？',
+          style: TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _completeTask();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.successGreen,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('确认完成'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 完成任务：清除所有计时器和报警
+  Future<void> _completeTask() async {
+    try {
+      // 显示加载提示
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // 清除所有计时器
+      final timerProvider = Provider.of<TimerProvider>(context, listen: false);
+      await timerProvider.clearAllTimers();
+
+      // 清除所有报警
+      final alarmProvider = Provider.of<AlarmProvider>(context, listen: false);
+      await alarmProvider.clearAllAlarms();
+
+      // 关闭加载提示
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
+      // 显示成功提示
+      if (mounted) {
+        _showSnackBar('任务已完成，所有计时器和报警已清除', isError: false);
+      }
+    } catch (e) {
+      // 关闭加载提示
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
+      // 显示错误提示
+      if (mounted) {
+        _showSnackBar('操作失败: $e', isError: true);
+      }
+    }
   }
 }
 
