@@ -87,23 +87,28 @@ class _FireGuardAppState extends State<FireGuardApp> {
 
   @override
   Widget build(BuildContext context) {
+    // 使用Builder确保能够获取正确的context
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => TimerProvider()),
         ChangeNotifierProvider(create: (_) => AlarmProvider()),
       ],
-      child: MaterialApp(
-        title: 'FireGuard 消防员安全监控',
-        theme: AppThemes.getTheme(_currentTheme),
-        darkTheme: AppThemes.getTheme(_currentTheme),
-        themeMode:
-            _currentTheme == AppThemeType.light ||
-                _currentTheme == AppThemeType.highContrastLight
-            ? ThemeMode.light
-            : ThemeMode.dark,
-        debugShowCheckedModeBanner: false,
-        home: HomeScreen(onThemeChanged: _updateTheme),
-        key: ValueKey(_currentTheme), // 使用key强制重建以应用新主题
+      child: Builder(
+        builder: (context) {
+          return MaterialApp(
+            title: 'FireGuard 消防员安全监控',
+            theme: AppThemes.getTheme(_currentTheme),
+            darkTheme: AppThemes.getTheme(_currentTheme),
+            themeMode:
+                _currentTheme == AppThemeType.light ||
+                    _currentTheme == AppThemeType.highContrastLight
+                ? ThemeMode.light
+                : ThemeMode.dark,
+            debugShowCheckedModeBanner: false,
+            home: HomeScreen(onThemeChanged: _updateTheme),
+            key: ValueKey(_currentTheme), // 使用key强制重建以应用新主题
+          );
+        },
       ),
     );
   }

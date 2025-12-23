@@ -11,6 +11,7 @@ import 'emergency_phones_screen.dart';
 import 'system_check_screen.dart';
 import 'statistics_screen.dart';
 import 'register_screen.dart';
+import 'home_screen.dart';
 
 /// 设置页面
 class SettingsScreen extends StatefulWidget {
@@ -146,21 +147,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Navigator.pop(context);
                   
                   // 通知主应用更新主题
-                  // 通过Navigator获取MaterialApp并触发重建
-                  final navigator = Navigator.of(context, rootNavigator: true);
-                  final materialApp = navigator.context.findAncestorWidgetOfExactType<MaterialApp>();
-                  if (materialApp != null) {
-                    // 通过context向上查找FireGuardApp的State
-                    final appState = navigator.context.findAncestorStateOfType<State<StatefulWidget>>();
-                    if (appState != null && appState.mounted) {
-                      // 如果找到了State，尝试调用_updateTheme方法
-                      // 这里使用反射或者直接setState
-                      appState.setState(() {});
+                  // 通过Navigator向上查找HomeScreen并调用回调
+                  final rootNavigator = Navigator.of(context, rootNavigator: true);
+                  final rootContext = rootNavigator.context;
+                  
+                  // 查找HomeScreen的State
+                  final homeScreenState = rootContext.findAncestorStateOfType<State<HomeScreen>>();
+                  if (homeScreenState != null) {
+                    final homeScreen = homeScreenState.widget;
+                    if (homeScreen.onThemeChanged != null) {
+                      homeScreen.onThemeChanged!(themeType);
                     }
                   }
                   
                   _showSnackBar(
-                    '主题已切换，返回首页查看效果',
+                    '主题已切换',
                     isError: false,
                   );
                 },
