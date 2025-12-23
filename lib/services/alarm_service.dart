@@ -31,6 +31,9 @@ class AlarmService {
     final timers = TimerService().getActiveTimers();
     
     for (final timer in timers) {
+      // 只有当计时器超时且该UID没有活跃报警时才触发
+      // 注意：即使报警被处理了，只要计时器还在运行且超时，就不应该再次触发
+      // 除非用户重新刷卡重置了计时器
       if (timer.isTimeout && !_activeAlarms.containsKey(timer.uid)) {
         await triggerAlarm(timer);
       }
@@ -140,6 +143,12 @@ class AlarmService {
       // 停止报警音和震动
       await stopAlarmSound();
       _vibrationTimer?.cancel();
+      
+      // 注意：不停止计时器，因为：
+      // 1. 用户可能希望继续监控该人员
+      // 2. 用户可以通过再次刷卡来重置计时器
+      // 3. 由于已经从_activeAlarms中移除，checkAndTriggerAlarms不会再次触发报警
+      // 4. 只有当用户重新刷卡重置计时器后，如果再次超时，才会触发新的报警
       
       _notifyListeners();
     }

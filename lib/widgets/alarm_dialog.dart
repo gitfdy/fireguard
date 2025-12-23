@@ -36,6 +36,11 @@ class _AlarmDialogState extends State<AlarmDialog> {
   }
 
   void _handleConfirm() {
+    // 先关闭确认对话框
+    setState(() {
+      _showConfirmDialog = false;
+    });
+    // 然后关闭主报警对话框并返回true
     Navigator.of(context).pop(true);
   }
 
